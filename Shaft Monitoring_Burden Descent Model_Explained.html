@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How the Burden Descent Model Works – M1 Shaft Monitoring · Client XXX</title>
+<style>
+:root{--ink:#14202b;--mut:#5b6b7a;--line:#d7dee6;--bg:#f4f6f9;--card:#fff;
+--sen:#2563eb;--evt:#0d9488;--lab:#7c3aed;--cfg:#64748b;--man:#ea580c;--cal:#16a34a;--ml:#db2777;--warn:#d97706;--bad:#dc2626}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.5}
+header{background:linear-gradient(120deg,#0f2740,#1e4a73);color:#fff;padding:34px 40px 26px}
+header h1{margin:0 0 6px;font-size:30px}header p{margin:0;color:#c9d8e8;max-width:1000px}
+nav{position:sticky;top:0;z-index:20;background:#0f2740;display:flex;gap:4px;flex-wrap:wrap;padding:6px 40px}
+nav a{color:#c9d8e8;text-decoration:none;font-size:13px;padding:6px 10px;border-radius:6px}nav a:hover{background:#1e4a73;color:#fff}
+main{max-width:1280px;margin:0 auto;padding:20px 24px 60px}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin:22px 0;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+h2{margin:0 0 4px;font-size:22px}h2 .n{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#1e4a73;color:#fff;font-size:15px;margin-right:10px;vertical-align:2px}
+.lead{color:var(--mut);margin:0 0 14px;max-width:1050px}
+.chip{display:inline-block;font-size:11px;font-weight:700;color:#fff;border-radius:5px;padding:1px 7px;margin:0 3px 3px 0;white-space:nowrap}
+.sen{background:var(--sen)}.evt{background:var(--evt)}.lab{background:var(--lab)}.cfg{background:var(--cfg)}.man{background:var(--man)}.cal{background:var(--cal)}.ml{background:var(--ml)}
+.row{display:grid;gap:18px}.c2{grid-template-columns:1.15fr 1fr}.c2b{grid-template-columns:1fr 1fr}.c3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:980px){.c2,.c2b,.c3{grid-template-columns:1fr}}
+.panel{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:14px}
+.formula{font-family:"Cambria Math",Cambria,Georgia,serif;font-size:17px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--cal);border-radius:8px;padding:10px 14px;margin:8px 0}
+.formula small{display:block;font-family:Inter,Arial,sans-serif;font-size:12px;color:var(--mut);margin-top:3px}
+.ex{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:8px 0;font-size:14px}
+.ex b{color:#92400e}.ex .res{font-weight:800;color:#065f46;font-size:15px}
+.kv{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}.kv>div{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.kv .l{font-size:11px;color:var(--mut)}.kv .v{font-size:22px;font-weight:800}
+.ctrl{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:8px 0;font-size:13px}.ctrl label{display:flex;flex-direction:column;gap:2px;min-width:170px}
+.ctrl input[type=range]{width:180px}.ctrl output{font-weight:700}
+button{font:inherit;font-size:13px;border:1px solid #9fb3c8;background:#fff;border-radius:7px;padding:6px 12px;cursor:pointer}button.on{background:#1e4a73;color:#fff;border-color:#1e4a73}
+svg text{font-family:Inter,"Segoe UI",Arial,sans-serif}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--mut);margin:6px 0}
+table.kpi{width:100%;border-collapse:collapse;font-size:13px}table.kpi th{background:#eef2f7;text-align:left;padding:7px 8px;position:sticky;top:44px}
+table.kpi td{border-bottom:1px solid #e7ecf2;padding:7px 8px;vertical-align:top}table.kpi td.f{font-family:"Cambria Math",Cambria,Georgia,serif;font-size:14px}
+table.kpi tr.g td{background:#e8eef6;font-weight:800;color:#1e4a73}
+.rule{border:2px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0;font-size:13px;transition:.3s}.rule.hit{border-color:var(--bad);background:#fef2f2}
+.rule.ok{border-color:#86efac;background:#f0fdf4}
+.note{font-size:12.5px;color:var(--mut)}
+.flowhint{font-size:13px;color:var(--mut);margin:4px 0 8px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+</style></head><body>
+<header><h1>How the Burden Descent model works</h1>
+<p>M1 Shaft monitoring – burden descent trajectory · Client XXX · No Level 2: every value comes from Level 1, lab, configuration or manual records, and is turned into KPIs by the model. Animations use illustrative values.</p></header>
+<nav><a href="#s1">1 Big picture</a><a href="#s2">2 Acquire & align</a><a href="#s3">3 Data quality</a><a href="#s4">4 Stockline & descent</a><a href="#s5">5 Hang & slip</a><a href="#s6">6 Gas flow (ΔP, K)</a><a href="#s7">7 Charge volume</a><a href="#s8">8 Descent check</a><a href="#s9">9 Layer tracking & ETA</a><a href="#s10">10 Advisories & ML</a><a href="#s11">11 All KPIs</a></nav>
+<main>
+
+<!-- 1 BIG PICTURE -->
+<section id="s1"><h2><span class="n">1</span>Big picture: from field signals to KPIs</h2>
+<p class="lead">Ten data sources feed one pipeline. Dots show data moving. <b>Click any source</b> to trace exactly which calculations and KPIs it feeds; click a KPI group to see where its data comes from.</p>
+<div class="legend"><span><span class="chip sen">L1 sensor</span>PLC/DCS analog, 1–10 s</span><span><span class="chip evt">L1 event</span>charging & status events</span><span><span class="chip lab">Lab</span>LIMS / file</span><span><span class="chip cfg">Config</span>drawings, limits</span><span><span class="chip man">Manual</span>logs</span><span><span class="chip cal">Calculation</span>physics / rules</span><span><span class="chip ml">Advisory / ML</span></span></div>
+<div class="flowhint" id="flowinfo">Showing all data flows. Click a box to trace it.</div><div class="legend"><span>— solid: data into a calculation</span><span>- - dashed: one calculation feeding another</span></div>
+<svg id="flow" viewBox="0 0 1270 640" width="100%"></svg>
+</section>
+
+<!-- 2 ACQUIRE -->
+<section id="s2"><h2><span class="n">2</span>Acquire and align the data</h2>
+<p class="lead">Signals arrive at different speeds. The gateway subscribes to Level 1 by OPC UA, stamps every value with time and quality, and aligns everything on a common 5-second grid. Slow values (lab, configuration) are held until a new value arrives; events (a batch dump) keep their exact time.</p>
+<div class="row c2"><div><svg id="lanes" viewBox="0 0 720 300" width="100%"></svg></div>
+<div><div class="formula">x(tₖ) = last valid value with time ≤ tₖ, &nbsp; tₖ = k × 5 s<small>Sample-and-hold onto the 5 s grid. Events are stored with their own time stamp, not rounded.</small></div>
+<div class="ex"><b>Example:</b> stockrod 1 sends 1.43 m at 10:00:01, 1.44 m at 10:00:03 and 1.44 m at 10:00:05. The 10:00:05 grid point takes <span class="res">1.44 m</span>. The coke batch dump at 10:00:02.4 is kept as an event at exactly 10:00:02.4. The sinter bulk density from the lab (1.80 t/m³, measured last month) is held until the next lab value.</div>
+<p class="note">Minimum rates for M1: stockrods ≤ 5 s, pressures and blast ≤ 10 s, dumps and batch weights as events (≤ 1 s time stamp).</p></div></div>
+</section>
+
+<!-- 3 DATA QUALITY -->
+<section id="s3"><h2><span class="n">3</span>Data quality: trust the signal before using it</h2>
+<p class="lead">Each value gets a quality flag before any KPI is calculated. A bad rod is removed from the average automatically and the operator sees why. In the animation rod 3 sticks; the model detects it and excludes it.</p>
+<div class="row c2"><div><svg id="dq" viewBox="0 0 720 280" width="100%"></svg><div class="ctrl"><button id="dqplay">Replay</button></div></div>
+<div>
+<div class="rule" id="dqr1"><b>Stuck rod:</b> rod speed = 0 for ≥ 3 min while the median rod speed ≥ 3 cm/min</div>
+<div class="rule" id="dqr2"><b>Rod disagreement:</b> |Lᵢ − median(L)| &gt; 0.30 m for ≥ 5 min</div>
+<div class="rule"><b>Frozen value:</b> identical value for &gt; 60 samples (5 min at 5 s)</div>
+<div class="rule"><b>Spike:</b> change &gt; physical rate limit (e.g. &gt; 1 m in 5 s without a dump or slip signature)</div>
+<div class="rule"><b>Rod status:</b> rod lifting / not measuring (from PLC status bit) → value ignored</div>
+<div class="ex"><b>Example:</b> at 10:12 rods 1 and 2 read 1.52 and 1.49 m and are falling at 9–10 cm/min. Rod 3 has read 1.18 m for 4 min. The stuck-rod rule fires, so rod 3 is excluded and the average stockline uses rods 1 and 2 only: (1.52 + 1.49) ÷ 2 = <span class="res">1.505 m</span>. Rod availability today: 22.8 h ÷ 24 h = 95 %.</div>
+</div></div>
+</section>
+
+<!-- 4 STOCKLINE & DESCENT -->
+<section id="s4"><h2><span class="n">4</span>Stockline and burden descent rate</h2>
+<p class="lead">The stockrods sit on the burden surface. Between dumps the surface sinks as burden is consumed lower down, so the rods read deeper and deeper. Each dump raises the surface again, giving the saw-tooth. The model removes the jump at each dump and fits a slope inside each cycle: that slope is the descent rate.</p>
+<div class="row c2">
+<div class="panel"><svg id="sim" viewBox="0 0 760 330" width="100%"></svg>
+<div class="ctrl"><label>Descent rate (cm/min) <input type="range" id="sv" min="4" max="14" step="0.2" value="9.4"><output id="svo">9.4</output></label>
+<label>Batch cycle (min) <input type="range" id="sc" min="3" max="7" step="0.1" value="4.6"><output id="sco">4.6</output></label>
+<label>Asymmetry between rods (%) <input type="range" id="sa" min="0" max="30" step="1" value="8"><output id="sao">8</output></label>
+<button id="spause">Pause</button></div></div>
+<div>
+<div class="kv"><div><div class="l">Avg stockline (m)</div><div class="v" id="k_lv">–</div></div><div><div class="l">Descent avg (cm/min)</div><div class="v" id="k_v">–</div></div><div><div class="l">Asymmetry</div><div class="v" id="k_as">–</div></div><div><div class="l">Charges / h</div><div class="v" id="k_ch">–</div></div></div>
+<div class="formula">vᵢ = slope of Lᵢ(t) inside one cycle = (L_end − L_start) ÷ (t_end − t_start)<small>Lᵢ = depth of burden surface below stockline zero for rod i. The dump jump is excluded because the fit runs only between dumps.</small></div>
+<div class="ex" id="ex_v">Waiting for the first full cycle…</div>
+<div class="formula">v̄ = mean(vᵢ, valid rods) &nbsp;·&nbsp; Asymmetry = (v_max − v_min) ÷ v̄ × 100<small>Variability = rolling standard deviation of v̄ over 30 min.</small></div>
+<div class="formula">Stockline deviation = L̄ − L_set &nbsp;·&nbsp; Charges/h = 60 ÷ (2 × batch cycle)<small>One charge = one coke batch + one ferrous batch. Charging lag = time L̄ stays deeper than L_set + tolerance.</small></div>
+</div></div>
+</section>
+
+<!-- 5 HANG & SLIP -->
+<section id="s5"><h2><span class="n">5</span>Hang and slip detection</h2>
+<p class="lead">Two rules watch the cleaned stockline together with top pressure and furnace status. Pick a scenario to see which rule fires.</p>
+<div class="ctrl"><button class="on" data-sc="normal">Normal</button><button data-sc="hang">Hang</button><button data-sc="slip">Slip</button></div>
+<div class="row c2"><div><svg id="hs" viewBox="0 0 720 320" width="100%"></svg></div>
+<div>
+<div class="rule" id="r_h"><b>Hang rule:</b> v̄ &lt; 1 cm/min on all valid rods for ≥ 5 min <i>and</i> wind on <i>and</i> no dump due</div>
+<div class="rule" id="r_s"><b>Slip rule:</b> L̄ rises by ≥ 0.30 m within 30 s (burden drops) <i>and</i> top pressure spike ≥ +0.10 bar</div>
+<div class="ex" id="hsx"></div>
+<div class="formula">Hang/slip frequency = number of events ÷ day<small>Each event is logged with time, rods, magnitude, duration and ΔP response. These records become the training labels for the ML early warning (step 10). Thresholds are agreed with operations.</small></div>
+</div></div>
+</section>
+
+<!-- 6 GAS FLOW -->
+<section id="s6"><h2><span class="n">6</span>Gas flow resistance: ΔP and permeability index K</h2>
+<p class="lead">Gas has to push up through the burden. The harder it is, the larger the pressure drop for the same gas volume. K normalises the pressure drop by the gas volume, so it shows burden permeability independently of blast rate. Move the sliders.</p>
+<div class="row c2"><div class="panel"><svg id="gas" viewBox="0 0 720 420" width="100%"></svg>
+<div class="ctrl"><label>Hot blast pressure P_b (bar g) <input type="range" id="gpb" min="3.0" max="4.0" step="0.01" value="3.42"><output id="gpbo"></output></label>
+<label>Top pressure P_t (bar g) <input type="range" id="gpt" min="1.6" max="2.4" step="0.01" value="2.00"><output id="gpto"></output></label>
+<label>Cold blast (air) V_air (Nm³/min) <input type="range" id="gva" min="4000" max="6000" step="20" value="5100"><output id="gvao"></output></label>
+<label>O₂ enrichment V_O₂ (Nm³/min) <input type="range" id="gvo" min="0" max="500" step="10" value="280"><output id="gvoo"></output></label></div></div>
+<div>
+<div class="formula">ΔP = P_b − P_t<small>Hot blast pressure at the bustle main minus top pressure, both from Level 1.</small></div>
+<div class="formula">V_bosh = 1.21 × V_air + 2 × V_O₂ + V_H₂<small>Air: 21 % O₂ → 42 % CO, 79 % N₂ ⇒ 1.21 Nm³ bosh gas per Nm³ air. Each extra O₂ gives 2 CO. V_H₂ comes from blast moisture and PCI hydrogen (here 170 Nm³/min).</small></div>
+<div class="formula">K = 10⁶ × (P_b,abs² − P_t,abs²) ÷ V_bosh^1.7<small>Absolute pressures in bar (gauge + 1.013). The scaling constant and exponent are plant conventions; they are agreed with Client XXX and kept fixed.</small></div>
+<div class="ex" id="gasx"></div>
+<div class="formula">Uptake avg = mean(T₁…T₄) &nbsp;·&nbsp; Spread = T_max − T_min<small>Example: 112, 121, 108, 142 °C → avg 120.8 °C, spread 34 °C. A rising spread means uneven gas flow (channelling).</small></div>
+</div></div>
+</section>
+
+<!-- 7 CHARGE VOLUME -->
+<section id="s7"><h2><span class="n">7</span>Charge volume and volumetric burden rate</h2>
+<p class="lead">Each batch weight comes from the weigh hoppers (Level 1 event). Dividing by bulk density from the lab gives the volume the charge takes in the furnace. Volume, not mass, is what makes the burden move down.</p>
+<div class="row c2"><div class="panel"><svg id="vol" viewBox="0 0 720 320" width="100%"></svg><div class="ctrl"><button id="volplay">Replay</button><label>Charges / h <input type="range" id="vch" min="5" max="8" step="0.1" value="6.5"><output id="vcho"></output></label></div></div>
+<div>
+<div class="formula">V_charge = Σ ( mᵢ ÷ ρᵢ )<small>mᵢ = batch weight of material i (L1 weigh hopper). ρᵢ = bulk density (lab, t/m³).</small></div>
+<table class="kpi" id="voltab"></table>
+<div class="formula">V̇ = charges per hour × V_charge<small>Volumetric burden rate: the volume that must be consumed in the furnace every hour.</small></div>
+<div class="ex" id="volx"></div>
+</div></div>
+</section>
+
+<!-- 8 DESCENT CHECK -->
+<section id="s8"><h2><span class="n">8</span>Descent check: measured vs expected</h2>
+<p class="lead">If the burden is consumed at V̇ m³/h, the surface at the throat must sink by V̇ ÷ throat area. Comparing this with the measured descent shows hanging or abnormal consumption early, often before ΔP reacts.</p>
+<div class="row c2"><div class="panel"><svg id="chk" viewBox="0 0 720 300" width="100%"></svg></div>
+<div>
+<div class="formula">A_throat = π × D_throat² ÷ 4<small>From the furnace drawing (configuration).</small></div>
+<div class="formula">v_expected = V̇ ÷ A_throat &nbsp;·&nbsp; Deviation = (v̄_measured − v_expected) ÷ v_expected × 100</div>
+<div class="ex" id="chkx"></div>
+<p class="note">Persistent negative deviation (measured slower than expected) = burden held up (hanging tendency, scaffold). Persistent positive deviation = burden running faster than balance (check weights and densities, or a slip). Alert band agreed in shadow mode, e.g. ±8 %.</p>
+</div></div>
+</section>
+
+<!-- 9 LAYER TRACKING -->
+<section id="s9"><h2><span class="n">9</span>Layer tracking: trajectory and time to tuyeres</h2>
+<p class="lead">Every charge becomes a layer at the stockline. As more charges are added on top and burden is consumed below, each layer moves down the furnace. Its depth comes from the furnace volume–height curve. The highlighted blue charges are a new recipe: watch the countdown to the tuyeres.</p>
+<div class="row c2b"><div class="panel"><svg id="shaft" viewBox="0 0 560 560" width="100%"></svg>
+<div class="ctrl"><label>Charges / h <input type="range" id="lch" min="5" max="8" step="0.1" value="6.5"><output id="lcho"></output></label><button id="lnew">Charge new recipe</button><button id="lpause">Pause</button></div></div>
+<div>
+<div class="kv"><div><div class="l">Recipe reaches tuyeres in</div><div class="v" id="l_eta">–</div></div><div><div class="l">Residence time</div><div class="v" id="l_res">–</div></div><div><div class="l">Layers in shaft</div><div class="v" id="l_n">–</div></div><div><div class="l">V̇ (m³/h)</div><div class="v" id="l_vr">–</div></div></div>
+<div class="formula">V(h) = ∫₀ʰ π D(z)² ÷ 4 dz &nbsp;→&nbsp; h(V) by inversion<small>Volume–height curve of the furnace from the profile drawing (configuration). Here: throat Ø 9.8 m, belly Ø 14.5 m at 17 m, Ø 12.5 m at tuyeres (21 m).</small></div>
+<div class="formula">V_above(c) = Σ V of charges dumped after c &nbsp;·&nbsp; depth(c) = h(V_stockline + V_above(c))</div>
+<div class="formula">ETA(c) = k_s × (V_work − V_above(c)) ÷ V̇<small>V_work = volume from stockline to tuyere level. k_s = shrinkage factor (burden shrinks as it softens), calibrated from observed recipe-change responses.</small></div>
+<div class="formula">Residence = k_s × V_work ÷ V̇ &nbsp;·&nbsp; Layers in shaft = V_work ÷ V_charge</div>
+<div class="ex" id="lx"></div>
+</div></div>
+</section>
+
+<!-- 10 ADVISORY -->
+<section id="s10"><h2><span class="n">10</span>Advisories and ML on top of the KPIs</h2>
+<p class="lead">The advisories reuse the KPIs already calculated, so they need little extra effort. Rule and statistical advisories start in Phase 1; the ML hang/slip warning starts in Phase 2, once enough labelled events have been collected.</p>
+<div class="row c2"><div class="panel"><svg id="ml" viewBox="0 0 720 360" width="100%"></svg></div>
+<div>
+<div class="formula">Descent forecast: L̂(t+Δ) = L(t) + v̂ × Δ − Σ dump jumps scheduled in Δ<small>v̂ smoothed by a Kalman filter; 30-min forecast with 90 % band.</small></div>
+<div class="formula">K deterioration (EWMA): zₜ = λ Kₜ + (1 − λ) zₜ₋₁ &nbsp; alert if zₜ &gt; μ + 3σ √(λ ÷ (2 − λ))<small>μ, σ from the last 7 stable days; λ ≈ 0.1.</small></div>
+<div class="formula">Hang/slip risk: p = calibrated GBM(features) &nbsp; advisory if p ≥ 30 %<small>Features: K trend, ΔP rate, descent σ and asymmetry, uptake spread, deviation vs balance, blast changes, raw-material quality.</small></div>
+<div class="formula">Recipe reminder: notify when ETA(first layer of new recipe) ≤ 30 min</div>
+<div class="ex"><b>Example:</b> K rises from 2.85 to 3.06 in 40 min while asymmetry rises from 5 % to 12 %. EWMA z = 3.02 exceeds the alert limit 2.98, so an advisory is raised with a link to the permeability action standard. In Phase 2 the ML model also shows <span class="res">risk 34 %</span>, with K trend and asymmetry as the top drivers.</div>
+</div></div>
+</section>
+
+<!-- 11 KPI CATALOGUE -->
+<section id="s11"><h2><span class="n">11</span>All M1 KPIs on one page</h2>
+<p class="lead">Every KPI in the M1 scope with its formula, a worked example and where its data comes from.</p>
+<table class="kpi" id="kpitab"></table>
+</section>
+<p class="note" style="text-align:center">SmartAxons · M1 Shaft monitoring explainer · illustrative values · thresholds and constants are finalised with Client XXX during design and shadow validation.</p>
+</main>
+
+<script>
+const NS="http://www.w3.org/2000/svg";
+const C={sen:"#2563eb",evt:"#0d9488",lab:"#7c3aed",cfg:"#64748b",man:"#ea580c",cal:"#16a34a",ml:"#db2777",ink:"#14202b",mut:"#5b6b7a",line:"#d7dee6",warn:"#d97706",bad:"#dc2626"};
+function E(tag,at={},parent){const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);if(parent)parent.appendChild(e);return e}
+function T(parent,x,y,txt,at={}){const t=E("text",Object.assign({x,y,"font-size":12,fill:C.ink},at),parent);t.textContent=txt;return t}
+const $=id=>document.getElementById(id);
+const fmt=(v,d=2)=>Number(v).toFixed(d);
+function pathOf(xs,ys){return xs.map((x,i)=>(i?"L":"M")+x.toFixed(1)+","+ys[i].toFixed(1)).join("")}
+
+/* ================= 1 FLOW ================= */
+(function(){
+const svg=$("flow");
+const S=[["S1","Stockrods / radar","Stockline depth, rod status","sen"],["S2","Charging PLC","Charge no., dump time, recipe","evt"],["S3","Weigh hoppers","Batch weight per material","evt"],
+["S4","Blast system","Air flow, O₂, humidity, PCI","sen"],["S5","Pressures","Hot blast & top pressure","sen"],["S6","Uptake / probe TCs","Top gas temperatures","sen"],
+["S7","Cast & furnace status","HM weight, wind on/off","evt"],["S8","Lab","Bulk density, chemistry","lab"],["S9","Configuration","Profile, throat Ø, limits","cfg"],["S10","Manual logs","Event & intervention log","man"]];
+const P=[["P1","OPC UA gateway","time stamp · 5 s grid","cal"],["P2","Data quality","rod status · stuck · frozen · spike","cal"]];
+const EN=[["E1","Stockline cleaning","dump steps removed","cal",["S1","S2"]],["E2","Descent calculator","slope per cycle","cal",["E1"]],["E3","Hang / slip detector","rules on L, P_t, status","cal",["E2","S5","S7"]],
+["E4","Gas-flow calculator","ΔP · V_bosh · K","cal",["S4","S5","S6"]],["E5","Charge volume & rate","Σ m/ρ · V̇","cal",["S2","S3","S8"]],["E6","Layer tracker","h(V) · ETA","cal",["E5","S9","S2"]],
+["E7","Descent check","V̇ ÷ A vs measured","cal",["E5","E2","S9"]],["E8","Advisory & ML","forecast · EWMA · risk","ml",["E2","E3","E4","E7","E6","S10"]]];
+const K=[["K1","Stockline & deviation",["E1"]],["K2","Descent rate · asymmetry · variability",["E2"]],["K3","Charging cycle · charges/h · lag",["E1","S2"]],["K4","Hang · slip · frequency",["E3"]],
+["K5","ΔP · K · uptake avg & spread",["E4"]],["K6","Charge volume · V̇",["E5"]],["K7","Expected descent · deviation",["E7"]],["K8","Layer position · ETA · residence · layers",["E6"]],["K9","Advisories: forecast, K alert, risk, reminder",["E8"]]];
+const pos={};const W=210,H=44;
+S.forEach((s,i)=>pos[s[0]]={x:10,y:20+i*61,c:s[3],t:s[1],d:s[2]});
+pos.P1={x:262,y:200,c:"cal",t:P[0][1],d:P[0][2]};pos.P2={x:262,y:350,c:"cal",t:P[1][1],d:P[1][2]};
+EN.forEach((e,i)=>pos[e[0]]={x:520,y:20+i*76,c:e[3],t:e[1],d:e[2]});
+K.forEach((k,i)=>pos[k[0]]={x:1005,y:20+i*68,c:"kpi",t:k[1]});
+const edges=[];
+S.forEach(s=>edges.push([s[0],"P1"]));edges.push(["P1","P2"]);
+EN.forEach(e=>e[4].forEach(src=>edges.push([src.startsWith("S")?"P2":src,e[0],src])));
+K.forEach(k=>k[2].forEach(src=>edges.push([src.startsWith("S")?"P2":src,k[0],src])));
+const gE=E("g",{},svg),gD=E("g",{},svg),gN=E("g",{},svg);
+function anchorR(n){const p=pos[n];const w=n.startsWith("K")?258:W;return [p.x+w,p.y+H/2]}
+function anchorL(n){const p=pos[n];return [p.x,p.y+H/2]}
+const paths=[];
+edges.forEach(([a,b,orig])=>{let [x1,y1]=anchorR(a),[x2,y2]=anchorL(b);
+  if(a==="P1"&&b==="P2"){x1=pos.P1.x+W/2;y1=pos.P1.y+H;x2=pos.P2.x+W/2;y2=pos.P2.y}
+  const mx=(x1+x2)/2;let d=(a==="P1"&&b==="P2")?`M${x1},${y1}L${x2},${y2}`:`M${x1},${y1}C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+  const ee=a.startsWith("E")&&b.startsWith("E");
+  if(ee){const xa=pos[a].x+W,ya=pos[a].y+H/2+6,xb=pos[b].x+W,yb=pos[b].y+H/2-6;const bulge=30+Math.abs(yb-ya)*0.08;d=`M${xa},${ya}C${xa+bulge},${ya} ${xb+bulge},${yb} ${xb},${yb}`}
+  const p=E("path",{d,fill:"none",stroke:"#c3cdd8","stroke-width":1.4,"stroke-dasharray":ee?"4 3":""},gE);paths.push({p,a,b,orig:orig||a,len:0});});
+paths.forEach(o=>o.len=o.p.getTotalLength());
+const dots=paths.map((o,i)=>({o,t:Math.random(),c:E("circle",{r:3.2,fill:"#1e4a73"},gD)}));
+const boxes={};
+function box(id){const p=pos[id];const g=E("g",{style:"cursor:pointer"},gN);const isK=id.startsWith("K");const w=isK?258:W;
+  const col=isK?"#1e4a73":C[p.c];
+  E("rect",{x:p.x,y:p.y,width:w,height:H,rx:8,fill:isK?"#eef3f9":"#fff",stroke:col,"stroke-width":1.6},g);
+  E("rect",{x:p.x,y:p.y,width:6,height:H,rx:3,fill:col},g);
+  T(g,p.x+12,p.y+18,p.t,{"font-weight":700,"font-size":12.5});if(p.d)T(g,p.x+12,p.y+34,p.d,{"font-size":11,fill:C.mut});
+  if(isK)T(g,p.x+12,p.y+34,"KPI group "+id,{"font-size":10.5,fill:C.mut});
+  g.addEventListener("click",()=>trace(id));boxes[id]=g;return g}
+Object.keys(pos).forEach(box);
+T(svg,10,14,"DATA SOURCES",{"font-size":11,"font-weight":800,fill:C.mut});T(svg,262,190,"ACQUISITION & QUALITY",{"font-size":11,"font-weight":800,fill:C.mut});
+T(svg,520,14,"CALCULATION ENGINE",{"font-size":11,"font-weight":800,fill:C.mut});T(svg,1005,14,"KPIs",{"font-size":11,"font-weight":800,fill:C.mut});
+let active=null;
+function down(id,set){set.add(id);edges.forEach(([a,b,o])=>{const from=(o||a);if(from===id||(a===id&&!o)){if(!set.has(b))down(b,set)}});return set}
+function up(id,set){set.add(id);edges.forEach(([a,b,o])=>{if(b===id){const src=o||a;if(!set.has(src))up(src,set);if(src.startsWith("S")){set.add("P1");set.add("P2")}}});return set}
+function trace(id){if(active===id){active=null;apply(null);$("flowinfo").textContent="Showing all data flows. Click a box to trace it.";return}
+  active=id;let set;
+  if(id.startsWith("S")){set=down(id,new Set());set.add("P1");set.add("P2");EN.forEach(e=>{if(e[4].includes(id))down(e[0],set)});K.forEach(k=>{if(k[2].includes(id))set.add(k[0])})}
+  else if(id.startsWith("K")||id.startsWith("E")){set=up(id,new Set());if(id.startsWith("E"))down(id,set)}
+  else set=new Set(Object.keys(pos));
+  apply(set,id);
+  const names=[...set].filter(x=>x.startsWith("K")).map(x=>pos[x].t);const srcs=[...set].filter(x=>x.startsWith("S")).map(x=>pos[x].t);
+  $("flowinfo").innerHTML=`<b>${pos[id].t}</b> → `+(id.startsWith("S")?`feeds KPI groups: ${names.join(" · ")}`:`uses data from: ${srcs.join(" · ")}`)+` &nbsp;<i>(click again to reset)</i>`}
+function apply(set,id){Object.entries(boxes).forEach(([k,g])=>g.style.opacity=!set||set.has(k)?1:.18);
+  paths.forEach(o=>{const on=!set||(set.has(o.a)&&set.has(o.b)&&(!o.orig.startsWith("S")||set.has(o.orig)));o.on=on;o.p.setAttribute("stroke",on&&set?"#1e4a73":"#c3cdd8");o.p.setAttribute("stroke-width",on&&set?2.4:1.4);o.p.style.opacity=on?1:.15});}
+function tick(){dots.forEach(d=>{d.t=(d.t+0.004)%1;const pt=d.o.p.getPointAtLength(d.t*d.o.len);d.c.setAttribute("cx",pt.x);d.c.setAttribute("cy",pt.y);
+  const src=pos[d.o.orig]||{c:"cal"};d.c.setAttribute("fill",C[src.c]||"#1e4a73");d.c.style.opacity=(d.o.on===false)?0:1});requestAnimationFrame(tick)}
+tick();
+})();
+
+/* ================= 2 LANES ================= */
+(function(){const svg=$("lanes");const lanes=[["Stockrod 1 (≈2 s)","sen",2],["Top pressure (≈5 s)","sen",5],["Cold blast flow (10 s)","sen",10],["Batch dump (event)","evt",0],["Lab bulk density (monthly)","lab",-1]];
+const x0=190,x1=700,span=60;
+lanes.forEach((l,i)=>{const y=40+i*48;T(svg,8,y+4,l[0],{"font-size":12});E("line",{x1:x0,x2:x1,y1:y,y2:y,stroke:C.line},svg);
+  if(l[2]>0){for(let s=0;s<=span;s+=l[2]){const x=x0+(x1-x0)*s/span;const c=E("circle",{cx:x,cy:y,r:4,fill:C[l[1]],opacity:0},svg);
+    const an=E("animate",{attributeName:"opacity",from:0,to:1,dur:"0.3s",begin:`${s/span*6}s;an${i}.end`,fill:"freeze"},c)}}
+  else if(l[2]===0){[13,31.5,49].forEach(s=>{const x=x0+(x1-x0)*s/span;E("path",{d:`M${x},${y-10}L${x+7},${y}L${x},${y+10}L${x-7},${y}Z`,fill:C.evt},svg)})}
+  else{E("rect",{x:x0,y:y-6,width:x1-x0,height:12,rx:6,fill:C.lab,opacity:.25},svg);T(svg,x0+8,y+4,"held value 1.80 t/m³ until next lab result",{"font-size":11,fill:C.lab})}});
+const gy=40+5*48;T(svg,8,gy+4,"Aligned 5 s grid",{"font-size":12,"font-weight":700});
+for(let s=0;s<=span;s+=5){const x=x0+(x1-x0)*s/span;E("line",{x1:x,x2:x,y1:24,y2:gy+8,stroke:"#1e4a73","stroke-dasharray":"2 4",opacity:.35},svg);E("rect",{x:x-5,y:gy-5,width:10,height:10,rx:2,fill:"#1e4a73"},svg)}
+const scan=E("line",{x1:x0,x2:x0,y1:20,y2:gy+12,stroke:C.cal,"stroke-width":2},svg);
+let t0=performance.now();(function f(n){const s=((n-t0)/1000%6)/6;const x=x0+(x1-x0)*s;scan.setAttribute("x1",x);scan.setAttribute("x2",x);requestAnimationFrame(f)})(t0);
+T(svg,x0,292,"0 s",{"font-size":10,fill:C.mut});T(svg,x1-18,292,"60 s",{"font-size":10,fill:C.mut});})();
+
+/* ================= 3 DQ ================= */
+(function(){const svg=$("dq");const x0=40,x1=700,y0=20,y1=240;const N=180;
+function Y(v){return y0+(v-1.0)/(1.8-1.0)*(y1-y0)}
+for(let v=1.0;v<=1.8001;v+=0.2){E("line",{x1:x0,x2:x1,y1:Y(v),y2:Y(v),stroke:"#eef2f7"},svg);T(svg,4,Y(v)+4,v.toFixed(1)+" m",{"font-size":10,fill:C.mut})}
+T(svg,x0,262,"10:00",{"font-size":10,fill:C.mut});T(svg,x1-30,262,"10:15",{"font-size":10,fill:C.mut});T(svg,300,276,"depth below stockline zero (deeper = lower on chart)",{"font-size":10,fill:C.mut});
+const cols=["#14202b","#5b6b7a","#9aa7b4"];const lines=cols.map(c=>E("path",{fill:"none",stroke:c,"stroke-width":2},svg));
+const flag=E("g",{opacity:0},svg);E("rect",{x:470,y:Y(1.18)-34,width:200,height:24,rx:6,fill:"#fef2f2",stroke:C.bad},flag);T(flag,480,Y(1.18)-18,"Rod 3 stuck → excluded",{"font-size":12,fill:C.bad,"font-weight":700});
+const data=[0,1,2].map(r=>{const a=[];let L=1.15+r*0.02;for(let i=0;i<N;i++){if(i%46===0&&i>0)L-=0.43;L+=0.094*5/60*1.0;let v=L;if(r===2&&i>110)v=a[110];a.push(v)}return a});
+let k=0;function step(){k=Math.min(N,k+1);data.forEach((d,r)=>{const xs=[],ys=[];for(let i=0;i<k;i++){xs.push(x0+(x1-x0)*i/(N-1));ys.push(Y(d[i]))}lines[r].setAttribute("d",pathOf(xs,ys))});
+ const hit=k>150;flag.setAttribute("opacity",hit?1:0);$("dqr1").className="rule"+(hit?" hit":"");$("dqr2").className="rule"+(k>165?" hit":"");if(k<N)setTimeout(step,40)}
+$("dqplay").onclick=()=>{k=0;step()};step();
+const lg=E("g",{},svg);["Rod 1","Rod 2","Rod 3"].forEach((n,i)=>{E("line",{x1:x0+10+i*80,x2:x0+30+i*80,y1:10,y2:10,stroke:cols[i],"stroke-width":3},lg);T(lg,x0+34+i*80,14,n,{"font-size":11})});})();
+
+/* ================= 4 STOCKLINE SIM ================= */
+(function(){const svg=$("sim");
+const fx=20,fw=250,topY=40;// furnace view
+const gF=E("g",{},svg);
+// shaft outline
+E("path",{d:`M${fx+30},${topY} L${fx+30},${topY+30} L${fx},${topY+290} M${fx+fw-30},${topY} L${fx+fw-30},${topY+30} L${fx+fw},${topY+290}`,stroke:C.ink,"stroke-width":3,fill:"none"},gF);
+T(gF,fx+60,topY-18,"Furnace top (side view)",{"font-size":12,"font-weight":700});
+const zeroY=topY+30;E("line",{x1:fx+20,x2:fx+fw-20,y1:zeroY,y2:zeroY,stroke:C.mut,"stroke-dasharray":"4 4"},gF);T(gF,fx+fw-18,zeroY+4,"0 m",{"font-size":10,fill:C.mut});
+const scale=110;// px per m
+const setY=zeroY+1.5*scale;E("line",{x1:fx+20,x2:fx+fw-20,y1:setY,y2:setY,stroke:"#2b6cb0","stroke-dasharray":"6 4"},gF);T(gF,fx+fw+4,setY+4,"set",{"font-size":10,fill:"#2b6cb0"});
+const layersG=E("g",{},gF);const rods=[0,1,2].map(i=>{const x=fx+70+i*55;const g=E("g",{},gF);const l=E("line",{x1:x,x2:x,y1:topY-6,y2:zeroY,stroke:"#1e4a73","stroke-width":3},g);const w=E("rect",{x:x-6,y:zeroY,width:12,height:6,fill:"#1e4a73"},g);T(g,x-12,topY-8,"Rod "+(i+1),{"font-size":10});return {x,l,w}});
+// chart
+const cx0=320,cx1=750,cy0=30,cy1=290;E("rect",{x:cx0,y:cy0,width:cx1-cx0,height:cy1-cy0,fill:"#fff",stroke:C.line},svg);
+T(svg,cx0,20,"Stockline depth, last 30 min (m) – deeper is lower",{"font-size":12,"font-weight":700});
+const LY=v=>cy0+(v-0.8)/(2.0-0.8)*(cy1-cy0);
+for(let v=0.8;v<=2.0001;v+=0.4){E("line",{x1:cx0,x2:cx1,y1:LY(v),y2:LY(v),stroke:"#eef2f7"},svg);T(svg,cx0-28,LY(v)+4,v.toFixed(1),{"font-size":10,fill:C.mut})}
+E("line",{x1:cx0,x2:cx1,y1:LY(1.5),y2:LY(1.5),stroke:"#2b6cb0","stroke-dasharray":"6 4"},svg);
+const cols=["#14202b","#5b6b7a","#9aa7b4"];const pl=cols.map(c=>E("path",{fill:"none",stroke:c,"stroke-width":1.8},svg));
+const fitG=E("g",{},svg);
+let t=0,L=[1.05,1.07,1.03],hist=[],lastDump=0,cyc=[],run=true,dumpN=0,cycStart=null;
+function par(){return {v:+$("sv").value,c:+$("sc").value,a:+$("sa").value/100}}
+["sv","sc","sa"].forEach(id=>{$(id).oninput=()=>{$(id+"o").textContent=$(id).value}});
+$("spause").onclick=()=>{run=!run;$("spause").textContent=run?"Pause":"Play"};
+let cycleData=null;let startLv=null;
+function stepSim(d,p){t+=d;const vr=[p.v*(1+p.a),p.v,p.v*(1-p.a)];
+  for(let i=0;i<3;i++)L[i]+=vr[i]/100*d;
+  if(t-lastDump>=p.c){cycleData={start:startLv.slice(),end:L.slice(),dur:t-lastDump};
+    const jump=p.v/100*p.c;for(let i=0;i<3;i++)L[i]-=jump*(1+(Math.random()-.5)*0.04);lastDump=t;startLv=L.slice();dumpN++;
+    if(window._layersReady)addLayer(dumpN%2?"#3f3f46":"#a0522d")}
+  hist.push({t,L:L.slice()})}
+startLv=L.slice();
+function frame(){if(run){const p=par();const dt=1/60*1.0;
+ for(let s=0;s<4;s++){stepSim(dt/4,p)}
+ hist=hist.filter(h=>h.t>t-30);
+ pl.forEach((pp,i)=>{const xs=[],ys=[];hist.forEach(h=>{xs.push(cx0+(h.t-(t-30))/30*(cx1-cx0));ys.push(LY(h.L[i]))});pp.setAttribute("d",pathOf(xs,ys))});
+ rods.forEach((r,i)=>{const y=zeroY+L[i]*scale;r.l.setAttribute("y2",y);r.w.setAttribute("y",y-6)});
+ const ys=L.map(l=>zeroY+l*scale);const sy=Math.max(...ys);
+ surfP.setAttribute("points",`${fx+5},${ys[0]} ${rods[0].x},${ys[0]} ${rods[1].x},${ys[1]} ${rods[2].x},${ys[2]} ${fx+fw-5},${ys[2]} ${fx+fw-5},${sy+2} ${fx+5},${sy+2}`);
+ moveLayers(sy);
+ const avg=(L[0]+L[1]+L[2])/3;$("k_lv").textContent=fmt(avg,2);
+ if(cycleData){const v=cycleData.end.map((e,i)=>(e-cycleData.start[i])/cycleData.dur*100);const vm=(v[0]+v[1]+v[2])/3;const as=(Math.max(...v)-Math.min(...v))/vm*100;
+  $("k_v").textContent=fmt(vm,1);$("k_as").textContent=fmt(as,1)+" %";$("k_ch").textContent=fmt(60/(2*p.c),1);
+  $("ex_v").innerHTML=`<b>Last full cycle (${fmt(cycleData.dur,1)} min):</b><br>Rod 1: (${fmt(cycleData.end[0])} − ${fmt(cycleData.start[0])}) m ÷ ${fmt(cycleData.dur,1)} min = ${fmt(v[0],1)} cm/min<br>Rod 2: (${fmt(cycleData.end[1])} − ${fmt(cycleData.start[1])}) ÷ ${fmt(cycleData.dur,1)} = ${fmt(v[1],1)} cm/min<br>Rod 3: (${fmt(cycleData.end[2])} − ${fmt(cycleData.start[2])}) ÷ ${fmt(cycleData.dur,1)} = ${fmt(v[2],1)} cm/min<br>v̄ = <span class="res">${fmt(vm,1)} cm/min</span> = ${fmt(vm*0.6,2)} m/h · Asymmetry = (${fmt(Math.max(...v),1)} − ${fmt(Math.min(...v),1)}) ÷ ${fmt(vm,1)} = <span class="res">${fmt(as,1)} %</span><br>Deviation = ${fmt(avg,2)} − 1.50 = ${fmt(avg-1.5,2)} m · Charges/h = 60 ÷ (2 × ${p.c}) = ${fmt(60/(2*p.c),1)}`;
+  const s=cycleData.start, e=cycleData.end;fitG.innerHTML="";}
+}requestAnimationFrame(frame)}
+// burden visual
+const surf=E("rect",{x:-100,y:0,width:0,height:0},layersG);const surfP=E("polygon",{fill:"#a0522d",opacity:.9},layersG);
+let layers=[];function addLayer(col){layers.push({col,depth:0,el:E("rect",{x:fx+5,y:0,width:fw-10,height:22,fill:col,opacity:.85},layersG)});if(layers.length>14){layers.shift().el.remove()}}
+function moveLayers(sy){let y=sy;for(let i=layers.length-1;i>=0;i--){layers[i].el.setAttribute("y",y);y+=22}
+ // clip below shaft bottom
+ layers.forEach(l=>{const yy=+l.el.getAttribute("y");l.el.setAttribute("opacity",yy>topY+280?0:.85)})}
+for(let i=0;i<10;i++)addLayer(i%2?"#3f3f46":"#a0522d");
+{const p0=par();for(let i=0;i<30*60;i++)stepSim(1/60,p0)}window._layersReady=true;
+requestAnimationFrame(frame);
+const lg=E("g",{},svg);["Rod 1","Rod 2","Rod 3"].forEach((n,i)=>{E("line",{x1:cx0+10+i*70,x2:cx0+28+i*70,y1:cy1+18,y2:cy1+18,stroke:cols[i],"stroke-width":3},lg);T(lg,cx0+32+i*70,cy1+22,n,{"font-size":11})});
+E("rect",{x:cx0+240,y:cy1+12,width:12,height:10,fill:"#3f3f46"},lg);T(lg,cx0+256,cy1+22,"coke",{"font-size":11});E("rect",{x:cx0+300,y:cy1+12,width:12,height:10,fill:"#a0522d"},lg);T(lg,cx0+316,cy1+22,"ferrous",{"font-size":11});
+})();
+
+/* ================= 5 HANG SLIP ================= */
+(function(){const svg=$("hs");const x0=50,x1=700;const N=240;
+const top=[20,170],bot=[190,290];
+const LY=v=>top[0]+(v-0.8)/(2.2-0.8)*(top[1]-top[0]);const PY=v=>bot[1]-(v-1.8)/(2.4-1.8)*(bot[1]-bot[0]);
+E("rect",{x:x0,y:top[0],width:x1-x0,height:top[1]-top[0],fill:"#fff",stroke:C.line},svg);E("rect",{x:x0,y:bot[0],width:x1-x0,height:bot[1]-bot[0],fill:"#fff",stroke:C.line},svg);
+T(svg,x0,14,"Average stockline depth (m)",{"font-size":12,"font-weight":700});T(svg,x0,184,"Top pressure (bar g)",{"font-size":12,"font-weight":700});
+[1.0,1.5,2.0].forEach(v=>T(svg,8,LY(v)+4,v.toFixed(1),{"font-size":10,fill:C.mut}));[1.9,2.1,2.3].forEach(v=>T(svg,8,PY(v)+4,v.toFixed(1),{"font-size":10,fill:C.mut}));
+T(svg,x0,310,"0 min",{"font-size":10,fill:C.mut});T(svg,x1-40,310,"40 min",{"font-size":10,fill:C.mut});
+const lp=E("path",{fill:"none",stroke:C.ink,"stroke-width":2},svg),pp=E("path",{fill:"none",stroke:"#1e4a73","stroke-width":2},svg);
+const mark=E("g",{},svg);
+function gen(sc){const L=[],P=[];let l=1.1;for(let i=0;i<N;i++){const tm=i/6;let v=9.4;
+  if(sc==="hang"&&tm>14&&tm<24)v=0.4;if(i%28===0&&i>0&&!(sc==="hang"&&tm>14&&tm<24))l-=0.43;
+  l+=v/100/6;let p=2.0+Math.random()*0.01;
+  if(sc==="slip"&&i===150){l-=0.0}
+  if(sc==="slip"&&i>=150&&i<153)l+=0.16;// sudden drop = deeper
+  if(sc==="slip"&&i>=150&&i<160)p+=0.22*Math.exp(-(i-150)/3);
+  if(sc==="hang"&&tm>18&&tm<24)p+=0.03;L.push(l);P.push(p)}return {L,P}}
+let cur="normal",k=0,D=gen("normal");
+function draw(){k=Math.min(N,k+2);const xs=[],ly=[],py=[];for(let i=0;i<k;i++){xs.push(x0+(x1-x0)*i/(N-1));ly.push(LY(D.L[i]));py.push(PY(D.P[i]))}
+ lp.setAttribute("d",pathOf(xs,ly));pp.setAttribute("d",pathOf(xs,py));
+ const h=cur==="hang"&&k>24*6*0.8,s=cur==="slip"&&k>152;
+ $("r_h").className="rule"+(h?" hit":(cur!=="hang"&&k>=N?" ok":""));$("r_s").className="rule"+(s?" hit":(cur!=="slip"&&k>=N?" ok":""));
+ mark.innerHTML="";if(cur==="hang"&&k>14*6){const xa=x0+(x1-x0)*14*6/(N-1),xb=x0+(x1-x0)*Math.min(k,24*6)/(N-1);E("rect",{x:xa,y:top[0],width:xb-xa,height:top[1]-top[0],fill:C.bad,opacity:.08},mark);if(h)T(mark,xa+4,top[0]+14,"HANG: v̄ < 1 cm/min for 10 min",{"font-size":11,fill:C.bad,"font-weight":700})}
+ if(s){const xa=x0+(x1-x0)*150/(N-1);E("line",{x1:xa,x2:xa,y1:top[0],y2:bot[1],stroke:C.bad,"stroke-dasharray":"4 3"},mark);T(mark,xa+6,top[0]+14,"SLIP: +0.48 m in 15 s, P_t +0.22 bar",{"font-size":11,fill:C.bad,"font-weight":700})}
+ const ex={normal:"<b>Normal:</b> v̄ ≈ 9.4 cm/min between dumps, top pressure steady at 2.00 bar. Neither rule fires.",
+  hang:"<b>Hang:</b> from minute 14 the stockline stops moving (v̄ = 0.4 cm/min) while the wind is on and no dump is due. After 5 min below 1 cm/min the hang rule fires. Logged: start 14:00, duration 10 min, ΔP +11 kPa.",
+  slip:"<b>Slip:</b> at minute 25 the average depth jumps from 1.38 m to 1.86 m (+0.48 m in 15 s) and top pressure spikes +0.22 bar. Both conditions are met (≥ 0.30 m in ≤ 30 s and ≥ +0.10 bar), so the slip rule fires with magnitude <span class='res'>0.48 m</span>."};
+ $("hsx").innerHTML=ex[cur];if(k<N)requestAnimationFrame(draw)}
+document.querySelectorAll("[data-sc]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-sc]").forEach(x=>x.classList.remove("on"));b.classList.add("on");cur=b.dataset.sc;D=gen(cur);k=0;draw()});
+draw();})();
+
+/* ================= 6 GAS ================= */
+(function(){const svg=$("gas");
+// furnace silhouette
+const fx=40;E("path",{d:`M${fx+70},20 L${fx+170},20 L${fx+200},220 L${fx+185},300 L${fx+55},300 L${fx+40},220 Z`,fill:"#efe7dc",stroke:C.ink,"stroke-width":2},svg);
+for(let i=0;i<9;i++){const y=40+i*28;E("rect",{x:fx+60-i*2,y,width:120+i*4,height:12,fill:i%2?"#3f3f46":"#a0522d",opacity:.55},svg)}
+E("rect",{x:fx+20,y:286,width:200,height:10,fill:"#94a3b8"},svg);T(svg,fx+2,326,"Bustle main → tuyeres: P_b, V_air, O₂",{"font-size":11,fill:C.sen});
+T(svg,fx+60,14,"Top: P_t, uptake temps",{"font-size":11,fill:C.sen});
+const arrows=E("g",{},svg);const arr=[];for(let i=0;i<10;i++){const a=E("path",{d:"M0,0 l-5,9 l10,0 z",fill:"#2563eb",opacity:.7},arrows);arr.push({a,x:fx+80+Math.random()*80,y:300-Math.random()*280,s:1+Math.random()})}
+const gx=330,gy=40,gw=360;
+const kBar=E("g",{},svg);E("rect",{x:gx,y:gy+150,width:gw,height:22,rx:11,fill:"#eef2f7"},kBar);
+const K0=2.0,K1=4.0,KX=v=>gx+(v-K0)/(K1-K0)*gw;E("rect",{x:KX(2.54),y:gy+150,width:KX(3.21)-KX(2.54),height:22,fill:"#bbf7d0"},kBar);
+T(kBar,KX(2.54)-10,gy+190,"2.54",{"font-size":10,fill:C.mut});T(kBar,KX(3.21)-10,gy+190,"3.21",{"font-size":10,fill:C.mut});T(kBar,gx,gy+140,"K index with normal band (LCL–UCL)",{"font-size":12,"font-weight":700});
+const needle=E("path",{d:"",fill:C.ink},kBar);const kTxt=T(kBar,gx,gy+225,"",{"font-size":28,"font-weight":800});
+const dpTxt=T(svg,gx,gy+20,"",{"font-size":15,"font-weight":700});const vbTxt=T(svg,gx,gy+50,"",{"font-size":15,"font-weight":700});
+const up=E("g",{},svg);T(up,gx,gy+262,"Uptake temperatures (°C)",{"font-size":12,"font-weight":700});[112,121,108,142].forEach((v,i)=>{const h=(v-80)*1.2;E("rect",{x:gx+i*50,y:gy+340-h,width:34,height:h,fill:v>135?C.warn:"#94a3b8"},up);T(up,gx+i*50+4,gy+336-h,v,{"font-size":11});T(up,gx+i*50+6,gy+354,"T"+(i+1),{"font-size":10,fill:C.mut})});
+T(up,gx+215,gy+300,"avg 120.8 °C",{"font-size":12});T(up,gx+215,gy+318,"spread 34 °C",{"font-size":12,fill:C.warn,"font-weight":700});
+function upd(){const pb=+$("gpb").value,pt=+$("gpt").value,va=+$("gva").value,vo=+$("gvo").value;["gpb","gpt","gva","gvo"].forEach(id=>$(id+"o").textContent=$(id).value);
+ const dp=(pb-pt)*100;const vb=1.21*va+2*vo+170;const pba=pb+1.013,pta=pt+1.013;const K=1e6*(pba*pba-pta*pta)/Math.pow(vb,1.7);
+ dpTxt.textContent=`ΔP = ${fmt(pb)} − ${fmt(pt)} bar = ${fmt(dp,0)} kPa`;vbTxt.textContent=`V_bosh = ${fmt(vb,0)} Nm³/min`;
+ const x=Math.max(gx,Math.min(gx+gw,KX(K)));needle.setAttribute("d",`M${x-8},${gy+140} L${x+8},${gy+140} L${x},${gy+152} Z`);
+ const st=K>3.21?["above UCL",C.bad]:K<2.54?["below LCL",C.warn]:["within band",C.cal];kTxt.textContent=`K = ${fmt(K,2)}  `;kTxt.setAttribute("fill",st[1]);
+ $("gasx").innerHTML=`<b>Worked example:</b><br>ΔP = ${fmt(pb)} − ${fmt(pt)} = ${fmt(pb-pt)} bar = <span class="res">${fmt(dp,0)} kPa</span><br>V_bosh = 1.21 × ${va} + 2 × ${vo} + 170 = <span class="res">${fmt(vb,0)} Nm³/min</span><br>P_b,abs = ${fmt(pba,3)} bar, P_t,abs = ${fmt(pta,3)} bar → P_b² − P_t² = ${fmt(pba*pba,2)} − ${fmt(pta*pta,2)} = ${fmt(pba*pba-pta*pta,2)} bar²<br>V_bosh^1.7 = ${fmt(vb,0)}^1.7 = ${(Math.pow(vb,1.7)/1e6).toFixed(3)} × 10⁶<br>K = 10⁶ × ${fmt(pba*pba-pta*pta,2)} ÷ ${(Math.pow(vb,1.7)/1e6).toFixed(3)}×10⁶ = <span class="res">${fmt(K,2)}</span> → <b style="color:${st[1]}">${st[0]}</b>`;
+ arrSpeed=0.6+vb/7000}
+let arrSpeed=1;["gpb","gpt","gva","gvo"].forEach(id=>$(id).oninput=upd);upd();
+(function f(){arr.forEach(o=>{o.y-=o.s*arrSpeed;if(o.y<25)o.y=295;o.a.setAttribute("transform",`translate(${o.x},${o.y})`)});requestAnimationFrame(f)})();})();
+
+/* ================= 7 VOLUME ================= */
+const MAT=[["Coke","#3f3f46",14.95,0.50],["Sinter","#a0522d",26.9,1.80],["Pellet","#b45309",33.7,2.10],["Lump ore","#78350f",6.7,2.30]];
+(function(){const svg=$("vol");const Vc=MAT.reduce((s,m)=>s+m[2]/m[3],0);
+let h="<tr><th>Material</th><th>m (t) <span class='chip evt'>L1</span></th><th>ρ (t/m³) <span class='chip lab'>Lab</span></th><th>V = m ÷ ρ (m³)</th></tr>";
+MAT.forEach(m=>h+=`<tr><td><span style="display:inline-block;width:10px;height:10px;background:${m[1]};margin-right:6px"></span>${m[0]}</td><td>${m[2].toFixed(2)}</td><td>${m[3].toFixed(2)}</td><td><b>${(m[2]/m[3]).toFixed(1)}</b></td></tr>`);
+h+=`<tr><td colspan="3"><b>V_charge</b></td><td><b>${Vc.toFixed(1)} m³</b></td></tr>`;$("voltab").innerHTML=h;
+T(svg,20,20,"Weigh hoppers (mass)",{"font-size":12,"font-weight":700});T(svg,470,20,"Volume in furnace",{"font-size":12,"font-weight":700});
+const bucket=E("rect",{x:470,y:40,width:200,height:250,fill:"#fff",stroke:C.ink,"stroke-width":2},svg);
+const items=[];MAT.forEach((m,i)=>{const g=E("g",{},svg);const w=60,hh=m[2]*2.2;E("rect",{x:0,y:0,width:w,height:hh,fill:m[1],rx:4},g);T(g,4,-6,`${m[0]} ${m[2]} t`,{"font-size":11});items.push({g,m,i,hh})});
+const fillG=E("g",{},svg);
+function play(){fillG.innerHTML="";let t0=performance.now();let acc=0;
+ items.forEach((o,i)=>{o.x0=30+i*105;o.y0=60;o.g.setAttribute("transform",`translate(${o.x0},${o.y0})`)});
+ function f(n){const el=(n-t0)/1000;let y=290;items.forEach((o,i)=>{const s=Math.max(0,Math.min(1,(el-i*0.9)/0.8));const V=o.m[2]/o.m[3];const hh=V*3.4;
+   const tx=o.x0+(500-o.x0)*s,ty=o.y0+((y-hh)-o.y0)*s;o.g.setAttribute("transform",`translate(${tx},${ty})`);o.g.style.opacity=s>=1?0:1;
+   if(s>=1&&!o.done){o.done=true;E("rect",{x:470,y:y-hh,width:200,height:hh,fill:o.m[1],opacity:.85},fillG);T(fillG,480,y-hh/2+4,`${o.m[0]}: ${o.m[2]} ÷ ${o.m[3]} = ${V.toFixed(1)} m³`,{"font-size":11,fill:"#fff","font-weight":700})}
+   y-=hh});if(el<4.5)requestAnimationFrame(f);else T(fillG,470,312,`V_charge = ${Vc.toFixed(1)} m³`,{"font-size":13,"font-weight":800})}
+ items.forEach(o=>o.done=false);requestAnimationFrame(f)}
+$("volplay").onclick=play;play();
+function ex(){const ch=+$("vch").value;$("vcho").textContent=ch;const vr=ch*Vc;
+ $("volx").innerHTML=`<b>Worked example:</b> V_charge = ${MAT.map(m=>(m[2]/m[3]).toFixed(1)).join(" + ")} = <span class="res">${Vc.toFixed(1)} m³</span><br>V̇ = ${ch} charges/h × ${Vc.toFixed(1)} m³ = <span class="res">${vr.toFixed(0)} m³/h</span>`;window.VDOT=vr;if(window.updChk)window.updChk()}
+$("vch").oninput=ex;ex();window.VC=Vc;})();
+
+/* ================= 8 CHECK ================= */
+(function(){const svg=$("chk");const D=9.8,A=Math.PI*D*D/4;
+E("ellipse",{cx:140,cy:120,rx:110,ry:38,fill:"#efe7dc",stroke:C.ink,"stroke-width":2},svg);T(svg,70,124,`A = π × 9.8² ÷ 4 = ${A.toFixed(1)} m²`,{"font-size":12,"font-weight":700});
+T(svg,40,40,"Throat cross-section (configuration)",{"font-size":12,"font-weight":700});
+const g=E("g",{},svg);const bx=330,bw=360;T(svg,bx,40,"Descent rate (cm/min)",{"font-size":12,"font-weight":700});
+const X=v=>bx+(v/16)*bw;for(let v=0;v<=16;v+=4){E("line",{x1:X(v),x2:X(v),y1:55,y2:200,stroke:"#eef2f7"},svg);T(svg,X(v)-4,214,v,{"font-size":10,fill:C.mut})}
+const b1=E("rect",{x:bx,y:70,height:36,fill:C.cal,rx:4},svg),b2=E("rect",{x:bx,y:130,height:36,fill:"#1e4a73",rx:4},svg);
+const t1=T(svg,bx,64,"",{"font-size":12}),t2=T(svg,bx,124,"",{"font-size":12});const dev=T(svg,bx,250,"",{"font-size":22,"font-weight":800});
+window.updChk=function(){const vr=window.VDOT||437;const ve=vr/A/0.6;const vm=9.4;const dv=(vm-ve)/ve*100;
+ b1.setAttribute("width",X(ve)-bx);b2.setAttribute("width",X(vm)-bx);t1.textContent=`expected (balance) ${ve.toFixed(1)}`;t2.textContent=`measured v̄ 9.4`;
+ dev.textContent=`Deviation ${dv>0?"+":""}${dv.toFixed(1)} %`;dev.setAttribute("fill",Math.abs(dv)>8?C.bad:C.cal);
+ $("chkx").innerHTML=`<b>Worked example:</b> A_throat = π × 9.8² ÷ 4 = ${A.toFixed(1)} m²<br>v_expected = ${vr.toFixed(0)} m³/h ÷ ${A.toFixed(1)} m² = ${(vr/A).toFixed(2)} m/h = <span class="res">${ve.toFixed(1)} cm/min</span><br>Deviation = (9.4 − ${ve.toFixed(1)}) ÷ ${ve.toFixed(1)} × 100 = <span class="res">${dv.toFixed(1)} %</span> ${Math.abs(dv)>8?"→ outside ±8 % band":"→ within ±8 % band"}<br><span class="note">Change charges/h in step 7 to see the effect.</span>`};
+window.updChk();})();
+
+/* ================= 9 SHAFT ================= */
+(function(){const svg=$("shaft");const H=21,zT=1.5;const prof=z=>z<=17?9.8+(14.5-9.8)*z/17:14.5-(14.5-12.5)*(z-17)/4;
+const dz=0.01;const Vt=[];let v=0;for(let z=0;z<=H+1e-9;z+=dz){Vt.push([z,v]);v+=Math.PI*prof(z)**2/4*dz}
+const Vof=z=>{const i=Math.min(Vt.length-1,Math.round(z/dz));return Vt[i][1]};
+const hOf=V=>{let lo=0,hi=Vt.length-1;while(lo<hi){const m=(lo+hi)>>1;if(Vt[m][1]<V)lo=m+1;else hi=m}return Vt[lo][0]};
+const V0=Vof(zT),Vtu=Vof(H),Vwork=Vtu-V0,ks=1.0;
+const cx=250,sy=40,pxm=22,px=w=>w*11;const Y=z=>sy+z*pxm;
+const shape=[];for(let z=0;z<=H;z+=0.5)shape.push([cx-px(prof(z))/2,Y(z)]);for(let z=H;z>=0;z-=0.5)shape.push([cx+px(prof(z))/2,Y(z)]);
+const clip=E("clipPath",{id:"shc"},E("defs",{},svg));E("polygon",{points:shape.map(p=>p.join(",")).join(" ")},clip);
+const lg=E("g",{"clip-path":"url(#shc)"},svg);E("polygon",{points:shape.map(p=>p.join(",")).join(" "),fill:"none",stroke:C.ink,"stroke-width":2.5},svg);
+E("line",{x1:40,x2:480,y1:Y(zT),y2:Y(zT),stroke:"#2b6cb0","stroke-dasharray":"5 4"},svg);T(svg,40,Y(zT)-5,"stockline 1.5 m",{"font-size":11,fill:"#2b6cb0"});
+E("line",{x1:40,x2:480,y1:Y(17.5),y2:Y(17.5),stroke:C.warn,"stroke-dasharray":"5 4"},svg);T(svg,40,Y(17.5)-5,"est. cohesive zone",{"font-size":11,fill:C.warn});
+E("line",{x1:40,x2:480,y1:Y(H),y2:Y(H),stroke:C.bad,"stroke-dasharray":"5 4"},svg);T(svg,40,Y(H)+16,"tuyere level 21 m",{"font-size":11,fill:C.bad});
+for(let z=0;z<=21;z+=3)T(svg,500,Y(z)+4,z+" m",{"font-size":10,fill:C.mut});
+const Vc=window.VC||66.6;const fc=MAT[0][2]/MAT[0][3]/Vc;
+let charges=[];let id=0;let pending=0;let simT=0,lastCh=0,run=true;
+// initial fill: charges from tuyere to stockline
+let Vacc=0;while(Vacc<Vwork){charges.unshift({id:id++,Vabove:Vacc,rec:false});Vacc+=Vc}
+charges.forEach(c=>c.Vabove=charges.length*Vc-(charges.indexOf(c)+1)*Vc);
+const els=new Map();
+function draw(){lg.innerHTML="";charges.forEach(c=>{const vTop=V0+c.Vabove,vMid=vTop+Vc*fc,vBot=vTop+Vc;
+  if(vTop>Vtu)return;const z1=hOf(vTop),z2=hOf(Math.min(vMid,Vtu)),z3=hOf(Math.min(vBot,Vtu));
+  E("rect",{x:0,y:Y(z1),width:560,height:Math.max(0,Y(z2)-Y(z1)),fill:"#3f3f46",opacity:.8},lg);
+  E("rect",{x:0,y:Y(z2),width:560,height:Math.max(0,Y(z3)-Y(z2)),fill:c.rec?"#3b82f6":"#a0522d",opacity:c.rec?.95:.75},lg)});
+ const vr=+$("lch").value*Vc;const rec=charges.filter(c=>c.rec);let eta="–";
+ if(rec.length){const first=rec.reduce((a,b)=>a.Vabove>b.Vabove?a:b);const rem=Math.max(0,Vwork-first.Vabove-Vc);const h=ks*rem/vr;eta=h<=0?"arrived":`${Math.floor(h)} h ${String(Math.round((h%1)*60)).padStart(2,"0")}`;
+  const zf=hOf(V0+first.Vabove+Vc);T(svg,0,0,"");markY=Y(zf)}
+ $("l_eta").textContent=eta;$("l_res").textContent=(ks*Vwork/vr).toFixed(1)+" h";$("l_n").textContent=(Vwork/Vc).toFixed(0);$("l_vr").textContent=vr.toFixed(0);
+ const ex=charges.find(c=>c.rec);
+ const sample=rec.length?rec.reduce((a,b)=>a.Vabove>b.Vabove?a:b):charges[Math.floor(charges.length/3)];const rem=Math.max(0,Vwork-sample.Vabove-Vc);
+ $("lx").innerHTML=`<b>Worked example${rec.length?" (first layer of new recipe)":""}:</b><br>V_work = V(21 m) − V(1.5 m) = ${Vtu.toFixed(0)} − ${V0.toFixed(0)} = <span class="res">${Vwork.toFixed(0)} m³</span><br>V̇ = ${$("lch").value} × ${Vc.toFixed(1)} = ${vr.toFixed(0)} m³/h → Residence = ${Vwork.toFixed(0)} ÷ ${vr.toFixed(0)} = <span class="res">${(Vwork/vr).toFixed(2)} h</span>; layers = ${Vwork.toFixed(0)} ÷ ${Vc.toFixed(1)} = ${(Vwork/Vc).toFixed(0)}<br>This layer: V_above = ${sample.Vabove.toFixed(0)} m³ → depth of its bottom = h(${(V0+sample.Vabove+Vc).toFixed(0)} m³) = <span class="res">${hOf(V0+sample.Vabove+Vc).toFixed(1)} m</span><br>ETA = (${Vwork.toFixed(0)} − ${(sample.Vabove+Vc).toFixed(0)}) ÷ ${vr.toFixed(0)} = <span class="res">${(rem/vr).toFixed(2)} h</span> (k_s = 1 here)`}
+let markY=0;
+$("lch").oninput=()=>{$("lcho").textContent=$("lch").value};$("lcho").textContent=$("lch").value;
+$("lnew").onclick=()=>{pending=4};$("lpause").onclick=()=>{run=!run;$("lpause").textContent=run?"Pause":"Play"};
+let last=performance.now();
+function f(n){const dt=(n-last)/1000;last=n;if(run){const chh=+$("lch").value;const simH=dt*0.25;// 1 s = 15 min
+  simT+=simH;const period=1/chh;
+  while(simT-lastCh>=period){lastCh+=period;charges.forEach(c=>c.Vabove+=Vc);charges.push({id:id++,Vabove:0,rec:pending>0});if(pending>0)pending--;
+   charges=charges.filter(c=>c.Vabove<Vwork+Vc)}
+  draw()}requestAnimationFrame(f)}
+requestAnimationFrame(f);setTimeout(()=>{pending=4},1500);})();
+
+/* ================= 10 ML ================= */
+(function(){const svg=$("ml");const feats=[["K trend","cal"],["ΔP rate","cal"],["Descent σ","cal"],["Asymmetry","cal"],["Uptake spread","cal"],["Balance deviation","cal"],["Blast changes","sen"],["Raw-material quality","lab"]];
+feats.forEach((f,i)=>{const y=24+i*40;E("rect",{x:10,y,width:150,height:30,rx:6,fill:"#fff",stroke:C[f[1]],"stroke-width":1.5},svg);T(svg,20,y+19,f[0],{"font-size":12})});
+E("rect",{x:300,y:120,width:140,height:110,rx:14,fill:"#fdf2f8",stroke:C.ml,"stroke-width":2},svg);T(svg,318,165,"Calibrated GBM",{"font-size":13,"font-weight":800,fill:C.ml});T(svg,318,185,"trained on event log",{"font-size":11,fill:C.mut});T(svg,318,202,"(Phase 2)",{"font-size":11,fill:C.mut});
+const ps=feats.map((f,i)=>E("path",{d:`M160,${39+i*40} C230,${39+i*40} 240,175 300,175`,fill:"none",stroke:"#e5c3d6","stroke-width":1.5},svg));
+const dots=ps.map((p,i)=>({p,l:p.getTotalLength(),t:i/8,c:E("circle",{r:4,fill:C.ml},svg)}));
+E("path",{d:"M440,175 L520,175",stroke:C.ml,"stroke-width":2,"marker-end":""},svg);
+const cx=610,cy=200,r=80;E("path",{d:`M${cx-r},${cy} A${r},${r} 0 0 1 ${cx+r},${cy}`,fill:"none",stroke:"#eef2f7","stroke-width":18},svg);
+const arc=E("path",{fill:"none",stroke:C.warn,"stroke-width":18},svg);const pt=T(svg,cx-38,cy-10,"",{"font-size":28,"font-weight":800});T(svg,cx-55,cy+22,"hang/slip risk 60 min",{"font-size":11,fill:C.mut});
+const thr=Math.PI*(1-0.30);E("line",{x1:cx+(r-14)*Math.cos(thr),y1:cy-(r-14)*Math.sin(thr),x2:cx+(r+14)*Math.cos(thr),y2:cy-(r+14)*Math.sin(thr),stroke:C.bad,"stroke-width":2},svg);T(svg,cx-r-6,cy-r+4,"30 % advisory",{"font-size":10,fill:C.bad});
+T(svg,470,320,"Top drivers: K trend ↑, asymmetry ↑",{"font-size":12,"font-weight":700});
+let t0=performance.now();(function f(n){const s=(n-t0)/1000;dots.forEach(d=>{d.t=(d.t+0.006)%1;const q=d.p.getPointAtLength(d.t*d.l);d.c.setAttribute("cx",q.x);d.c.setAttribute("cy",q.y)});
+ const p=0.12+0.22*(0.5+0.5*Math.sin(s/2.5));const a=Math.PI*(1-p);arc.setAttribute("d",`M${cx-r},${cy} A${r},${r} 0 0 1 ${cx+r*Math.cos(a)},${cy-r*Math.sin(a)}`);
+ arc.setAttribute("stroke",p>=0.3?C.bad:p>0.2?C.warn:C.cal);pt.textContent=Math.round(p*100)+" %";requestAnimationFrame(f)})(t0);})();
+
+/* ================= 11 KPI TABLE ================= */
+(function(){const ch=s=>s.split(",").map(x=>`<span class="chip ${x.trim()}">${{sen:"L1 sensor",evt:"L1 event",lab:"Lab",cfg:"Config",man:"Manual",cal:"Calc",ml:"ML"}[x.trim()]}</span>`).join("");
+const R=[
+"Stockline & descent",
+["Stockline level (per rod)","Measured; validated by rod status & quality rules","Rod 1 = 1.52 m","sen","5 s"],
+["Average stockline","L̄ = mean(Lᵢ, valid rods)","(1.52 + 1.49) ÷ 2 = 1.505 m","sen","5 s"],
+["Stockline deviation","L̄ − L_set","1.505 − 1.50 = +0.005 m","sen,cfg","5 s"],
+["Descent rate (per rod, avg)","vᵢ = ΔLᵢ ÷ Δt within cycle; v̄ = mean(vᵢ)","(1.63 − 1.20) ÷ 4.6 min = 9.4 cm/min","sen,evt","per cycle"],
+["Descent asymmetry","(v_max − v_min) ÷ v̄ × 100","(10.2 − 8.6) ÷ 9.4 = 17 %","sen","per cycle"],
+["Descent variability","σ(v̄) rolling 30 min","0.35 cm/min","sen","1 min"],
+["Charging cycle time","t_dump(n) − t_dump(n−1)","4.6 min per batch","evt","event"],
+["Charges per hour","60 ÷ (2 × batch cycle)","60 ÷ 9.2 = 6.5","evt","event"],
+["Charging lag","Σ time with L̄ > L_set + tol","L̄ > 1.65 m for 7 min","sen,cfg","event"],
+"Hang & slip",
+["Hanging event","v̄ < 1 cm/min ≥ 5 min, wind on, no dump due","0.4 cm/min for 10 min → hang","sen,evt","event"],
+["Slip event","ΔL̄ ≥ 0.30 m in ≤ 30 s and ΔP_t ≥ +0.10 bar","+0.48 m in 15 s, +0.22 bar → slip","sen","event"],
+["Hang / slip frequency","events ÷ day","2 hangs + 1 slip = 3 /day","cal","shift"],
+"Gas flow",
+["Shaft ΔP","P_b − P_t","3.42 − 2.00 = 1.42 bar = 142 kPa","sen","10 s"],
+["Bosh gas volume","1.21 V_air + 2 V_O₂ + V_H₂","1.21×5100 + 2×280 + 170 = 6901 Nm³/min","sen","10 s"],
+["Permeability index K","10⁶ (P_b,abs² − P_t,abs²) ÷ V_bosh^1.7","10.57 ÷ 3.36 = 3.15","sen,cfg","10 s"],
+["Segmented ΔP / K","Same formula between shaft pressure taps","upper K 2.1, lower K 4.5","sen","10 s"],
+["Uptake avg & spread","mean(Tᵢ); T_max − T_min","120.8 °C; 34 °C","sen","10 s"],
+"Volume & balance",
+["Charge volume","Σ mᵢ ÷ ρᵢ","29.9 + 14.9 + 16.0 + 2.9 = 63.8 m³","evt,lab","per charge"],
+["Volumetric burden rate","charges/h × V_charge","6.5 × 63.8 = 415 m³/h","evt,lab","per charge"],
+["Expected descent","V̇ ÷ (π D² ÷ 4)","415 ÷ 75.4 = 5.5 m/h = 9.2 cm/min","evt,lab,cfg","15 min"],
+["Descent deviation vs balance","(v̄ − v_exp) ÷ v_exp × 100","(9.4 − 9.2) ÷ 9.2 = +2 %","cal","15 min"],
+"Trajectory & layers",
+["Layer position","depth = h(V_stockline + V_above)","V_above 1200 m³ → 11.6 m","evt,lab,cfg","per charge"],
+["Time to tuyere (ETA)","k_s (V_work − V_above) ÷ V̇","(2451 − 1200) ÷ 415 = 3.0 h","evt,lab,cfg","per charge"],
+["Residence time","k_s V_work ÷ V̇","2451 ÷ 415 = 5.9 h","evt,lab,cfg","per charge"],
+["Layers in shaft","V_work ÷ V_charge","2451 ÷ 63.8 = 38","evt,lab,cfg","per charge"],
+["Layer composition","coke, ferrous mass, O/C, recipe ID per charge","O/C = 67.3 ÷ 14.95 = 4.50","evt,lab","per charge"],
+"Advisories",
+["Descent forecast (30 min)","Kalman: L̂ = L + v̂ Δ − scheduled dumps","forecast 1.48 m ± 0.06","cal","1 min"],
+["K deterioration alert","EWMA z > μ + 3σ√(λ/(2−λ))","z 3.02 > limit 2.98 → alert","cal","1 min"],
+["Rod health / availability","valid time ÷ total time","22.8 ÷ 24 = 95 %","sen","1 h"],
+["Recipe arrival reminder","ETA(first new layer) ≤ 30 min","notify at ETA 0 h 30","cal","per charge"],
+["Hang / slip risk (Phase 2)","p = calibrated GBM(features)","34 % ≥ 30 % → advisory","ml,man","1 min"]];
+let h="<tr><th>KPI</th><th>Formula</th><th>Example</th><th>Data from</th><th>Refresh</th></tr>";
+R.forEach(r=>{if(typeof r==="string")h+=`<tr class="g"><td colspan="5">${r}</td></tr>`;else h+=`<tr><td><b>${r[0]}</b></td><td class="f">${r[1]}</td><td>${r[2]}</td><td>${ch(r[3])}</td><td>${r[4]}</td></tr>`});
+$("kpitab").innerHTML=h;})();
+</script></body></html>
